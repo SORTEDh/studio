@@ -24,7 +24,8 @@
           "description": "Role of the user.",
           "enum": [
             "patient",
-            "doctor"
+            "doctor",
+            "admin"
           ]
         },
         "locale": {
@@ -40,6 +41,62 @@
         "role",
         "locale"
       ]
+    },
+    "Patient": {
+      "title": "Patient",
+      "description": "Represents a patient's profile.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string", "description": "FK to User" }
+      },
+      "required": ["id", "userId"]
+    },
+    "Practitioner": {
+      "title": "Practitioner",
+      "description": "Represents a practitioner's profile.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string", "description": "FK to User" }
+      },
+      "required": ["id", "userId"]
+    },
+    "Facility": {
+      "title": "Facility",
+      "description": "Represents a medical facility.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" }
+      },
+      "required": ["id", "name"]
+    },
+    "Consent": {
+        "title": "Consent",
+        "description": "Represents a consent record granted by a patient.",
+        "type": "object",
+        "properties": {
+            "id": { "type": "string" },
+            "patientId": { "type": "string" },
+            "counterpartyId": { "type": "string" },
+            "scope": { "type": "string" },
+            "grantedAt": { "type": "string", "format": "date-time" }
+        },
+        "required": ["id", "patientId", "counterpartyId", "scope", "grantedAt"]
+    },
+    "AuditLog": {
+        "title": "AuditLog",
+        "description": "Represents an audit log for important events.",
+        "type": "object",
+        "properties": {
+            "id": { "type": "string" },
+            "timestamp": { "type": "string", "format": "date-time" },
+            "userId": { "type": "string" },
+            "action": { "type": "string" },
+            "details": { "type": "object" }
+        },
+        "required": ["id", "timestamp", "userId", "action"]
     },
     "Prescription": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -258,180 +315,81 @@
         "path": "/users/{userId}",
         "definition": {
           "entityName": "User",
-          "schema": {
-            "$ref": "#/backend/entities/User"
-          },
-          "description": "Stores user profiles. Path-based ownership is used.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier for the user."
-            }
-          ]
+          "schema": { "$ref": "#/backend/entities/User" }
+        }
+      },
+      {
+        "path": "/patients/{patientId}",
+        "definition": {
+          "entityName": "Patient",
+          "schema": { "$ref": "#/backend/entities/Patient" }
+        }
+      },
+      {
+        "path": "/practitioners/{practitionerId}",
+        "definition": {
+          "entityName": "Practitioner",
+          "schema": { "$ref": "#/backend/entities/Practitioner" }
+        }
+      },
+      {
+        "path": "/facilities/{facilityId}",
+        "definition": {
+          "entityName": "Facility",
+          "schema": { "$ref": "#/backend/entities/Facility" }
         }
       },
       {
         "path": "/users/{userId}/prescriptions/{prescriptionId}",
         "definition": {
           "entityName": "Prescription",
-          "schema": {
-            "$ref": "#/backend/entities/Prescription"
-          },
-          "description": "Stores prescriptions for a user. Path-based ownership enforced.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier for the user."
-            },
-            {
-              "name": "prescriptionId",
-              "description": "The unique identifier for the prescription."
-            }
-          ]
+          "schema": { "$ref": "#/backend/entities/Prescription" }
         }
       },
       {
         "path": "/users/{userId}/carePlans/{carePlanId}",
         "definition": {
           "entityName": "CarePlan",
-          "schema": {
-            "$ref": "#/backend/entities/CarePlan"
-          },
-          "description": "Stores care plans for a user. Path-based ownership enforced.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier for the user."
-            },
-            {
-              "name": "carePlanId",
-              "description": "The unique identifier for the care plan."
-            }
-          ]
+          "schema": { "$ref": "#/backend/entities/CarePlan" }
         }
       },
       {
         "path": "/users/{userId}/carePlans/{carePlanId}/tasks/{taskId}",
         "definition": {
           "entityName": "Task",
-          "schema": {
-            "$ref": "#/backend/entities/Task"
-          },
-          "description": "Stores tasks for a care plan, belonging to a user. Path-based ownership enforced.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier for the user."
-            },
-            {
-              "name": "carePlanId",
-              "description": "The unique identifier for the care plan."
-            },
-            {
-              "name": "taskId",
-              "description": "The unique identifier for the task."
-            }
-          ]
+          "schema": { "$ref": "#/backend/entities/Task" }
+        }
+      },
+       {
+        "path": "/users/{userId}/consents/{consentId}",
+        "definition": {
+          "entityName": "Consent",
+          "schema": { "$ref": "#/backend/entities/Consent" }
         }
       },
       {
-        "path": "/users/{userId}/carePlans/{carePlanId}/tasks/{taskId}/taskLogs/{taskLogId}",
+        "path": "/auditLogs/{auditLogId}",
         "definition": {
-          "entityName": "TaskLog",
-          "schema": {
-            "$ref": "#/backend/entities/TaskLog"
-          },
-          "description": "Stores task logs for a task, in a care plan, belonging to a user. Path-based ownership enforced.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier for the user."
-            },
-            {
-              "name": "carePlanId",
-              "description": "The unique identifier for the care plan."
-            },
-            {
-              "name": "taskId",
-              "description": "The unique identifier for the task."
-            },
-            {
-              "name": "taskLogId",
-              "description": "The unique identifier for the task log."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/common_meds/{medId}",
-        "definition": {
-          "entityName": "Med",
-          "schema": {
-            "$ref": "#/backend/entities/Med"
-          },
-          "description": "Stores common medication information.",
-          "params": [
-            {
-              "name": "medId",
-              "description": "The unique identifier for the med."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/common_tests/{testId}",
-        "definition": {
-          "entityName": "Test",
-          "schema": {
-            "$ref": "#/backend/entities/Test"
-          },
-          "description": "Stores common tests information.",
-          "params": [
-            {
-              "name": "testId",
-              "description": "The unique identifier for the test."
-            }
-          ]
+          "entityName": "AuditLog",
+          "schema": { "$ref": "#/backend/entities/AuditLog" }
         }
       },
       {
         "path": "/chats/{chatId}",
         "definition": {
           "entityName": "Chat",
-          "schema": {
-            "$ref": "#/backend/entities/Chat"
-          },
-          "description": "Stores chat sessions between users.",
-          "params": [
-            {
-              "name": "chatId",
-              "description": "The unique identifier for the chat."
-            }
-          ]
+          "schema": { "$ref": "#/backend/entities/Chat" }
         }
       },
       {
         "path": "/chats/{chatId}/messages/{messageId}",
         "definition": {
           "entityName": "Message",
-          "schema": {
-            "$ref": "#/backend/entities/Message"
-          },
-          "description": "Stores messages within a chat.",
-          "params": [
-            {
-              "name": "chatId",
-              "description": "The unique identifier for the chat."
-            },
-            {
-              "name": "messageId",
-              "description": "The unique identifier for the message."
-            }
-          ]
+          "schema": { "$ref": "#/backend/entities/Message" }
         }
       }
-    ],
-    "reasoning": "The Firestore structure is designed to ensure Authorization Independence, DBAC, and QAPs. User data is stored under `/users/{userId}` to establish clear ownership. Prescriptions, CarePlans, Tasks, and TaskLogs are nested under the user to maintain this ownership. This nested structure simplifies security rules, allowing for path-based authorization. Authorization Independence is achieved by avoiding `get()` calls in security rules, relying instead on the inherent hierarchy. Since we are using path-based ownership for all data related to a user, no data needs to be denormalized. The structure supports QAPs because `list` operations are naturally scoped to a user's data, preventing unauthorized access to other users' information. Dedicated collections for common meds/tests list are created to store the seed data separate from user data. Chat data is stored in a top-level `chats` collection to allow for flexible participant structures and avoid deep nesting under users. Security for chats is managed by checking if the authenticated user's ID is in the `participants` array of the chat document."
+    ]
   }
 }
+
     

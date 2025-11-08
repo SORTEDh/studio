@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -65,6 +64,22 @@ export default function PrescriptionsPage() {
         return "";
     }
   };
+  
+  const handleViewCarePlan = (prescriptionId: string) => {
+    // This is a bit of a simplification. In a real app you'd query
+    // carePlans where prescriptionId matches.
+    // For now, we assume a 1-to-1 mapping and the IDs might be the same
+    // or we can construct it if we know the convention.
+    // Let's find the care plan associated with this prescription.
+    // This assumes there's a way to find it. The current structure doesn't directly link them back.
+    // A better approach would be to store the carePlanId on the prescription document,
+    // or query the carePlans collection.
+    // For now, let's just log a message.
+    console.log("Would navigate to care plan for prescription: ", prescriptionId);
+    // A query would look like this:
+    // const q = query(collection(firestore, `users/${user.uid}/carePlans`), where("prescriptionId", "==", prescriptionId));
+  };
+
 
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
@@ -128,7 +143,7 @@ export default function PrescriptionsPage() {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                      <DropdownMenuItem>View Details</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleViewCarePlan(p.id)}>View Care Plan</DropdownMenuItem>
                       <DropdownMenuItem>Delete</DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>

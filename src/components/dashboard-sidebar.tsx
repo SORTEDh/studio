@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Users, FileText, Stethoscope } from "lucide-react";
+import { Home, Users, FileText, Stethoscope, ClipboardList } from "lucide-react";
 
 import {
   SidebarHeader,
@@ -24,6 +24,11 @@ export function DashboardSidebar() {
       href: "/dashboard/prescriptions",
       label: "Prescriptions",
       icon: FileText,
+    },
+    {
+      href: "/dashboard/care-plans",
+      label: "Care Plans",
+      icon: ClipboardList,
     },
     { href: "/dashboard/users", label: "Users", icon: Users },
   ];
@@ -50,7 +55,7 @@ export function DashboardSidebar() {
             <SidebarMenuItem key={item.label}>
               <Link href={item.href} legacyBehavior passHref>
                 <SidebarMenuButton
-                  isActive={pathname === item.href}
+                  isActive={pathname.startsWith(item.href) && (item.href !== '/dashboard' || pathname === '/dashboard')}
                   tooltip={{ children: item.label, side: "right" }}
                 >
                   <item.icon />

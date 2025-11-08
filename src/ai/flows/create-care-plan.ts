@@ -48,7 +48,7 @@ const TaskSchema = z.object({
   type: z.string().describe("Type of the task, e.g., 'Medication', 'Appointment'"),
   text_en: z.string().describe('Task description in English.'),
   text_kn: z.string().describe('Task description in Kannada.'),
-  dueDate: z.string().describe('Due date for the task in ISO 8601 format.'),
+  dueDate: z.string().nullable().describe('Due date for the task in ISO 8601 format.'),
   status: z.enum(['Pending', 'Completed', 'Missed']).describe('Status of the task.'),
 });
 
@@ -96,35 +96,17 @@ export async function createCarePlan(
     }
 }
 
-
 const analyzePrescriptionPrompt = ai.definePrompt({
-  name: 'analyzePrescriptionPromptForCarePlan',
-  input: { schema: z.object({ prescriptionImageDataUri: z.string()}) },
-  output: { schema: AnalyzePrescriptionImageOutputSchema },
-  prompt: `You are an AI assistant that analyzes prescription images and extracts key information.
-
-  Analyze the following prescription image and extract the medication name, dosage, frequency, and any additional notes. Return a JSON object with the medicationName, dosage, frequency, and additionalNotes fields populated. If some information is not visible or cannot be determined, populate the field with "unknown".
-
-  Prescription Image: {{media url=prescriptionImageDataUri}}
-  `,
-});
-
-const generateTasksPrompt = ai.definePrompt({
-    name: 'generateTasksPrompt',
-    input: { schema: AnalyzePrescriptionImageOutputSchema },
-    output: { schema: z.object({ tasks: z.array(TaskSchema) }) },
-    prompt: `You are a helpful medical assistant. Based on the following prescription information, generate a list of tasks for the patient. Create tasks for taking medication for the next 7 days based on the frequency.
-
-    Medication: {{{medicationName}}}
-    Dosage: {{{dosage}}}
-    Frequency: {{{frequency}}}
-    Notes: {{{additionalNotes}}}
-
-    The current date is ${new Date().toISOString()}.
-    Return a JSON object with a "tasks" array.
-    `
-})
-
+    name: 'analyzePrescriptionPromptForCarePlan',
+    input: { schema: z.object({ prescriptionImageDataUri: z.string()}) },
+    output: { schema: AnalyzePrescriptionImageOutputSchema },
+    prompt: `You are an AI assistant that analyzes prescription images and extracts key information.
+  
+    Analyze the following prescription image and extract the medication name, dosage, frequency, and any additional notes. Return a JSON object with the medicationName, dosage, frequency, and additionalNotes fields populated. If some information is not visible or cannot be determined, populate the field with "unknown".
+  
+    Prescription Image: {{media url=prescriptionImageDataUri}}
+    `,
+  });
 
 const createCarePlanFlow = ai.defineFlow(
   {
@@ -135,8 +117,9 @@ const createCarePlanFlow = ai.defineFlow(
   async (input) => {
     const { firestore } = getFirebase();
     const storage = getStorage();
+    const webhookUrl = 'https://soerted.app.n8n.cloud/webhook/3a880c1e-4b99-46d9-bfaa-ea34db090055';
 
-    const { patientId, actorId } = input;
+    const { patientId, actorId, prescriptionImageDataUri } = input;
     if (!patientId || !actorId) {
         throw new Error('Patient ID and Actor ID are required.');
     }
@@ -144,19 +127,41 @@ const createCarePlanFlow = ai.defineFlow(
     // Determine if the actor is also the patient.
     const isDoctorFlow = patientId !== actorId;
 
-    // 1. Analyze the prescription image
-    const { output: analysis } = await analyzePrescriptionPrompt({ prescriptionImageDataUri: input.prescriptionImageDataUri});
+    // 1. Analyze the prescription image to get medication name for the document
+    let { output: analysis } = await analyzePrescriptionPrompt({ prescriptionImageDataUri });
     if (!analysis) {
-        throw new Error('Could not analyze prescription');
+        // Fallback if AI analysis fails
+        analysis = { 
+            medicationName: 'Unknown Medication',
+            dosage: 'N/A',
+            frequency: 'N/A',
+            additionalNotes: 'AI analysis failed.'
+        };
+    }
+    
+    // 2. Call the external webhook to get tasks
+    const webhookResponse = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ prescriptionImageDataUri }),
+    });
+
+    if (!webhookResponse.ok) {
+        const errorBody = await webhookResponse.text();
+        console.error('Webhook failed:', errorBody);
+        throw new Error(`Webhook request failed with status ${webhookResponse.status}`);
     }
 
-    // 2. Upload image to Firebase Storage
+    const tasksFromWebhook: z.infer<typeof TaskSchema>[] = await webhookResponse.json();
+
+    // 3. Upload image to Firebase Storage
     const imageRef = ref(storage, `prescriptions/${patientId}/${Date.now()}`);
-    const uploadResult = await uploadString(input.prescriptionImageDataUri, imageRef, 'data_url');
+    const uploadResult = await uploadString(prescriptionImageDataUri, imageRef, 'data_url');
     const imageUrl = await getDownloadURL(uploadResult.ref);
 
-
-    // 3. Save the Prescription to Firestore for the patient
+    // 4. Save the Prescription to Firestore for the patient
     const prescriptionRef = doc(collection(firestore, `users/${patientId}/prescriptions`));
     const prescriptionData = {
         ...analysis,
@@ -168,7 +173,7 @@ const createCarePlanFlow = ai.defineFlow(
     };
     await setDoc(prescriptionRef, prescriptionData);
     
-    // 4. Create a Care Plan in Firestore for the patient
+    // 5. Create a Care Plan in Firestore for the patient
     const carePlanRef = doc(collection(firestore, `users/${patientId}/carePlans`));
     const carePlanData = {
         id: carePlanRef.id,
@@ -177,18 +182,16 @@ const createCarePlanFlow = ai.defineFlow(
         createdAt: serverTimestamp(),
     };
     await setDoc(carePlanRef, carePlanData);
-
-    // 5. Generate tasks based on the analysis
-    const { output: tasksOutput } = await generateTasksPrompt(analysis);
-    if (!tasksOutput) {
-        throw new Error('Could not generate tasks');
-    }
-
-    // 6. Save tasks to Firestore
+    
+    // 6. Save tasks from webhook to Firestore
     const savedTasks = [];
-    for (const task of tasksOutput.tasks) {
+    for (const task of tasksFromWebhook) {
         const taskRef = doc(collection(firestore, `users/${patientId}/carePlans/${carePlanRef.id}/tasks`));
-        const taskData = { ...task, id: taskRef.id, carePlanId: carePlanRef.id, patientId: patientId };
+        
+        // Ensure status is one of the allowed enum values, default to 'Pending'
+        const status = ['Pending', 'Completed', 'Missed'].includes(task.status) ? task.status : 'Pending';
+
+        const taskData = { ...task, id: taskRef.id, carePlanId: carePlanRef.id, patientId: patientId, status };
         await setDoc(taskRef, taskData);
         savedTasks.push(taskData);
     }
@@ -232,7 +235,6 @@ const createCarePlanFlow = ai.defineFlow(
             chatData = existingChat;
         }
     }
-
 
     // This is a workaround because serverTimestamp() returns a token, not a date.
     const finalPrescriptionData = {

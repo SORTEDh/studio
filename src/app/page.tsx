@@ -1,5 +1,7 @@
 import { Header } from "@/components/header";
 import { PrescriptionAnalyzer } from "@/components/prescription-analyzer";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Terminal } from "lucide-react";
 
 export default function Home() {
   return (
@@ -17,6 +19,13 @@ export default function Home() {
             </p>
           </div>
           <PrescriptionAnalyzer />
+           <Alert variant="destructive" className="max-w-3xl mx-auto mt-8">
+            <Terminal className="h-4 w-4" />
+            <AlertTitle>For Demonstration Purposes Only</AlertTitle>
+            <AlertDescription>
+              This is a pilot application and should not be used for real medical decisions. The information provided by the AI may be inaccurate. Always consult with a qualified healthcare professional for any medical concerns.
+            </AlertDescription>
+          </Alert>
         </div>
       </main>
       <footer className="py-6 text-center text-sm text-muted-foreground">

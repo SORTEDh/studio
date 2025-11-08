@@ -7,12 +7,14 @@ import { useParams } from 'next/navigation';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Send, User as UserIcon } from 'lucide-react';
+import { Send, User as UserIcon, ShieldAlert } from 'lucide-react';
 import { DashboardHeader } from '@/components/dashboard-header';
 import { cn } from '@/lib/utils';
 import type { Message, Chat } from '@/lib/types';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
+const emergencyKeywords = ['emergency', 'suicide', 'chest pain', 'breathing difficulty', 'severe pain', 'unconscious'];
 
 export default function ChatPage() {
   const { user } = useUser();
@@ -20,6 +22,7 @@ export default function ChatPage() {
   const params = useParams();
   const chatId = params.chatId as string;
   const [newMessage, setNewMessage] = useState('');
+  const [showEmergencyBanner, setShowEmergencyBanner] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const chatRef = useMemoFirebase(() => {
@@ -43,6 +46,12 @@ export default function ChatPage() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+  
+  useEffect(() => {
+    const lowerCaseMessage = newMessage.toLowerCase();
+    const hasEmergencyKeyword = emergencyKeywords.some(keyword => lowerCaseMessage.includes(keyword));
+    setShowEmergencyBanner(hasEmergencyKeyword);
+  }, [newMessage]);
 
 
   const handleSendMessage = async (e: React.FormEvent) => {
@@ -123,6 +132,15 @@ export default function ChatPage() {
       </div>
 
       <div className="p-4 md:p-8 border-t bg-background">
+        {showEmergencyBanner && (
+             <Alert variant="destructive" className="mb-4">
+                <ShieldAlert className="h-4 w-4" />
+                <AlertTitle>Potential Emergency Detected</AlertTitle>
+                <AlertDescription>
+                    If this is a medical emergency, please dial your local emergency number immediately. This chat is not a substitute for emergency services.
+                </AlertDescription>
+            </Alert>
+        )}
         <form onSubmit={handleSendMessage} className="flex items-center gap-2">
           <Input
             value={newMessage}

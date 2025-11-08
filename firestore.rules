@@ -35,6 +35,10 @@ service cloud.firestore {
       
       match /prescriptions/{prescriptionId} {
         allow read, write: if hasAccessToPatient(userId);
+
+        match /documents/{documentId} {
+          allow read, write: if hasAccessToPatient(userId);
+        }
       }
       
       match /carePlans/{carePlanId} {
@@ -109,5 +113,3 @@ service cloud.firestore {
     }
   }
 }
-
-    

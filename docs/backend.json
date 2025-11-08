@@ -133,6 +133,18 @@
         "createdAt"
       ]
     },
+    "Document": {
+      "title": "Document",
+      "description": "Represents a document uploaded by a user, related to a prescription.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "url": { "type": "string", "format": "uri" },
+        "uploadedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "url", "uploadedAt"]
+    },
     "CarePlan": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "CarePlan",
@@ -358,6 +370,13 @@
         }
       },
       {
+        "path": "/users/{userId}/prescriptions/{prescriptionId}/documents/{documentId}",
+        "definition": {
+          "entityName": "Document",
+          "schema": { "$ref": "#/backend/entities/Document" }
+        }
+      },
+      {
         "path": "/users/{userId}/carePlans/{carePlanId}",
         "definition": {
           "entityName": "CarePlan",
@@ -402,5 +421,3 @@
     ]
   }
 }
-
-    

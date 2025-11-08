@@ -68,7 +68,10 @@
       "type": "object",
       "properties": {
         "id": { "type": "string" },
-        "name": { "type": "string" }
+        "name": { "type": "string" },
+        "type": { "type": "string", "description": "Type of facility, e.g., Hospital, Clinic." },
+        "address": { "type": "string", "description": "The full address of the facility." },
+        "roomMapUrl": { "type": "string", "format": "uri", "description": "URL to an image of the facility's room map." }
       },
       "required": ["id", "name"]
     },
@@ -399,3 +402,5 @@
     ]
   }
 }
+
+    

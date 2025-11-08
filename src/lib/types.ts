@@ -7,6 +7,14 @@ export type User = {
   locale: string;
 }
 
+export type Facility = {
+  id: string;
+  name: string;
+  type: string;
+  address: string;
+  roomMapUrl?: string;
+};
+
 export type Prescription = {
   id: string;
   patientId: string;
@@ -56,3 +64,5 @@ export type Message = {
   attachments?: string[];
   createdAt: any; // server timestamp
 };
+
+    

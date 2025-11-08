@@ -1,3 +1,4 @@
+
 import {
   Table,
   TableBody,
@@ -21,29 +22,29 @@ import {
 const users = [
   {
     id: 1,
-    name: "John Doe",
-    email: "john@example.com",
+    name: "Aarav Sharma",
+    email: "aarav.sharma@example.com",
     role: "Patient",
     status: "Active",
   },
   {
     id: 2,
-    name: "Jane Smith",
-    email: "jane@example.com",
-    role: "Patient",
+    name: "Dr. Priya Patel",
+    email: "priya.patel@example.com",
+    role: "Doctor",
     status: "Active",
   },
   {
     id: 3,
-    name: "Sam Brown",
-    email: "sam@example.com",
+    name: "Meera Iyer",
+    email: "meera.iyer@example.com",
     role: "Admin",
     status: "Active",
   },
   {
     id: 4,
-    name: "Lisa White",
-    email: "lisa@example.com",
+    name: "Rohan Kumar",
+    email: "rohan.kumar@example.com",
     role: "Patient",
     status: "Inactive",
   },
@@ -80,7 +81,7 @@ export default function UsersPage() {
                     variant={user.status === "Active" ? "default" : "secondary"}
                     className={
                       user.status === "Active"
-                        ? "bg-accent text-accent-foreground"
+                        ? "bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800"
                         : ""
                     }
                   >
@@ -110,3 +111,5 @@ export default function UsersPage() {
     </div>
   );
 }
+
+    

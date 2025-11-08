@@ -117,7 +117,7 @@ const createCarePlanFlow = ai.defineFlow(
   async (input) => {
     const { firestore } = getFirebase();
     const storage = getStorage();
-    const webhookUrl = 'https://soerted.app.n8n.cloud/webhook/3a880c1e-4b99-46d9-bfaa-ea34db090055';
+    const webhookUrl = 'https://hook.eu1.make.com/9lwly39mhewy5ywzjbkrlcfos6msrk6y';
 
     const { patientId, actorId, prescriptionImageDataUri } = input;
     if (!patientId || !actorId) {

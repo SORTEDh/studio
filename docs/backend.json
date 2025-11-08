@@ -1,0 +1,328 @@
+{
+  "entities": {
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user of the patient support system.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the user entity."
+        },
+        "email": {
+          "type": "string",
+          "description": "Email address of the user.",
+          "format": "email"
+        },
+        "passwordHash": {
+          "type": "string",
+          "description": "Hashed password of the user."
+        },
+        "role": {
+          "type": "string",
+          "description": "Role of the user (e.g., patient, admin).",
+          "format": "string"
+        },
+        "locale": {
+          "type": "string",
+          "description": "Preferred locale of the user.",
+          "format": "string"
+        }
+      },
+      "required": [
+        "id",
+        "email",
+        "passwordHash",
+        "role",
+        "locale"
+      ]
+    },
+    "Prescription": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Prescription",
+      "type": "object",
+      "description": "Represents a prescription record.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the prescription entity."
+        },
+        "patientId": {
+          "type": "string",
+          "description": "Reference to the User (Patient). (Relationship: User 1:N Prescription)"
+        },
+        "imageUrl": {
+          "type": "string",
+          "description": "URL of the prescription image.",
+          "format": "uri"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the prescription was created.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "patientId",
+        "imageUrl",
+        "createdAt"
+      ]
+    },
+    "CarePlan": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "CarePlan",
+      "type": "object",
+      "description": "Represents a care plan for a patient.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the care plan entity."
+        },
+        "patientId": {
+          "type": "string",
+          "description": "Reference to the User (Patient). (Relationship: User 1:N CarePlan)"
+        },
+        "prescriptionId": {
+          "type": "string",
+          "description": "Reference to the Prescription. (Relationship: Prescription 1:N CarePlan)"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the care plan was created.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "patientId",
+        "prescriptionId",
+        "createdAt"
+      ]
+    },
+    "Task": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Task",
+      "type": "object",
+      "description": "Represents a task within a care plan.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the task entity."
+        },
+        "carePlanId": {
+          "type": "string",
+          "description": "Reference to the CarePlan. (Relationship: CarePlan 1:N Task)"
+        },
+        "type": {
+          "type": "string",
+          "description": "Type of the task."
+        },
+        "text_en": {
+          "type": "string",
+          "description": "Task description in English."
+        },
+        "text_kn": {
+          "type": "string",
+          "description": "Task description in Kannada."
+        },
+        "dueDate": {
+          "type": "string",
+          "description": "Due date for the task.",
+          "format": "date-time"
+        },
+        "status": {
+          "type": "string",
+          "description": "Status of the task."
+        }
+      },
+      "required": [
+        "id",
+        "carePlanId",
+        "type",
+        "text_en",
+        "text_kn",
+        "dueDate",
+        "status"
+      ]
+    },
+    "TaskLog": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "TaskLog",
+      "type": "object",
+      "description": "Represents a log of task completions.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the task log entity."
+        },
+        "taskId": {
+          "type": "string",
+          "description": "Reference to the Task. (Relationship: Task 1:N TaskLog)"
+        },
+        "completedAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the task was completed.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "taskId",
+        "completedAt"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Stores user profiles. Path-based ownership is used.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/prescriptions/{prescriptionId}",
+        "definition": {
+          "entityName": "Prescription",
+          "schema": {
+            "$ref": "#/backend/entities/Prescription"
+          },
+          "description": "Stores prescriptions for a user. Path-based ownership enforced.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user."
+            },
+            {
+              "name": "prescriptionId",
+              "description": "The unique identifier for the prescription."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/carePlans/{carePlanId}",
+        "definition": {
+          "entityName": "CarePlan",
+          "schema": {
+            "$ref": "#/backend/entities/CarePlan"
+          },
+          "description": "Stores care plans for a user. Path-based ownership enforced.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user."
+            },
+            {
+              "name": "carePlanId",
+              "description": "The unique identifier for the care plan."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/carePlans/{carePlanId}/tasks/{taskId}",
+        "definition": {
+          "entityName": "Task",
+          "schema": {
+            "$ref": "#/backend/entities/Task"
+          },
+          "description": "Stores tasks for a care plan, belonging to a user. Path-based ownership enforced.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user."
+            },
+            {
+              "name": "carePlanId",
+              "description": "The unique identifier for the care plan."
+            },
+            {
+              "name": "taskId",
+              "description": "The unique identifier for the task."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/carePlans/{carePlanId}/tasks/{taskId}/taskLogs/{taskLogId}",
+        "definition": {
+          "entityName": "TaskLog",
+          "schema": {
+            "$ref": "#/backend/entities/TaskLog"
+          },
+          "description": "Stores task logs for a task, in a care plan, belonging to a user. Path-based ownership enforced.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user."
+            },
+            {
+              "name": "carePlanId",
+              "description": "The unique identifier for the care plan."
+            },
+            {
+              "name": "taskId",
+              "description": "The unique identifier for the task."
+            },
+            {
+              "name": "taskLogId",
+              "description": "The unique identifier for the task log."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/common_meds/{medId}",
+        "definition": {
+          "entityName": "Med",
+          "schema": {
+            "$ref": "#/backend/entities/Med"
+          },
+          "description": "Stores common medication information.",
+          "params": [
+            {
+              "name": "medId",
+              "description": "The unique identifier for the med."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/common_tests/{testId}",
+        "definition": {
+          "entityName": "Test",
+          "schema": {
+            "$ref": "#/backend/entities/Test"
+          },
+          "description": "Stores common tests information.",
+          "params": [
+            {
+              "name": "testId",
+              "description": "The unique identifier for the test."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure is designed to ensure Authorization Independence, DBAC, and QAPs. User data is stored under `/users/{userId}` to establish clear ownership. Prescriptions, CarePlans, Tasks, and TaskLogs are nested under the user to maintain this ownership.  This nested structure simplifies security rules, allowing for path-based authorization.  Authorization Independence is achieved by avoiding `get()` calls in security rules, relying instead on the inherent hierarchy.  Since we are using path-based ownership for all data related to a user, no data needs to be denormalized.  The structure supports QAPs because `list` operations are naturally scoped to a user's data, preventing unauthorized access to other users' information.  Dedicated collections for common meds/tests list are created to store the seed data separate from user data."
+  }
+}

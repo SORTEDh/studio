@@ -1,0 +1,191 @@
+/**
+ * @fileoverview Firestore Security Rules for the patient support system.
+ *
+ * Core Philosophy:
+ * This ruleset enforces a strict user-ownership model for all patient-specific data.
+ * Each user can only access their own data, and no cross-user access is permitted.
+ * Public read access is enabled for common medication and test lists.
+ *
+ * Data Structure:
+ * - /users/{userId}: Stores user profiles, accessible only by the user themselves.
+ * - /users/{userId}/prescriptions/{prescriptionId}: Stores prescriptions, accessible only by the user.
+ * - /users/{userId}/carePlans/{carePlanId}: Stores care plans, accessible only by the user.
+ * - /users/{userId}/carePlans/{carePlanId}/tasks/{taskId}: Stores tasks, accessible only by the user.
+ * - /users/{userId}/carePlans/{carePlanId}/tasks/{taskId}/taskLogs/{taskLogId}: Stores task logs, accessible only by the user.
+ * - /common_meds/{medId}: Stores common medication information, publicly readable.
+ * - /common_tests/{testId}: Stores common tests information, publicly readable.
+ *
+ * Key Security Decisions:
+ * - User listing is explicitly denied to prevent unauthorized information gathering.
+ * - All data nested under /users/{userId} is strictly controlled by the user's authentication.
+ * - Common medication and test lists are publicly readable, as they are intended to be seed data.
+ *
+ * Denormalization for Authorization:
+ * - Not required, as the nested structure inherently provides path-based authorization.
+ *
+ * Structural Segregation:
+ * - Common data (meds/tests) is stored in separate, top-level collections to isolate it from user-specific data.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * @description Controls access to user profiles.
+     * @path /users/{userId}
+     * @allow (create) User with ID 'user123' can create their profile.
+     *   - request.auth.uid: 'user123'
+     *   - request.resource.data.id: 'user123'
+     * @deny (create) User with ID 'user123' cannot create profile with mismatched ID.
+     *   - request.auth.uid: 'user123'
+     *   - request.resource.data.id: 'user456'
+     * @allow (get) User with ID 'user123' can read their profile.
+     *   - request.auth.uid: 'user123'
+     * @deny (get) User with ID 'user123' cannot read another user's profile.
+     *   - request.auth.uid: 'user456'
+     * @principle Enforces document ownership; users can only access their own profile.
+     */
+    match /users/{userId} {
+      function isOwner(userId) {
+        return request.auth != null && request.auth.uid == userId;
+      }
+      allow create: if isOwner(userId) && request.resource.data.id == userId;
+      allow get: if isOwner(userId);
+      allow list: if false; // User listing is not permitted.
+      allow update: if isOwner(userId) && resource != null && request.resource.data.id == resource.data.id;
+      allow delete: if isOwner(userId) && resource != null;
+    }
+
+    /**
+     * @description Controls access to user prescriptions.
+     * @path /users/{userId}/prescriptions/{prescriptionId}
+     * @allow (create) User with ID 'user123' can create a prescription.
+     *   - request.auth.uid: 'user123'
+     * @deny (create) User with ID 'user123' cannot create a prescription for another user.
+     *   - request.auth.uid: 'user456'
+     * @allow (get) User with ID 'user123' can read their prescriptions.
+     *   - request.auth.uid: 'user123'
+     * @deny (get) User with ID 'user123' cannot read another user's prescriptions.
+     *   - request.auth.uid: 'user456'
+     * @principle Enforces document ownership; users can only access their own prescriptions.
+     */
+    match /users/{userId}/prescriptions/{prescriptionId} {
+      function isOwner(userId) {
+        return request.auth != null && request.auth.uid == userId;
+      }
+      allow create: if isOwner(userId);
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow update: if isOwner(userId) && resource != null;
+      allow delete: if isOwner(userId) && resource != null;
+    }
+
+    /**
+     * @description Controls access to user care plans.
+     * @path /users/{userId}/carePlans/{carePlanId}
+     * @allow (create) User with ID 'user123' can create a care plan.
+     *   - request.auth.uid: 'user123'
+     * @deny (create) User with ID 'user123' cannot create a care plan for another user.
+     *   - request.auth.uid: 'user456'
+     * @allow (get) User with ID 'user123' can read their care plans.
+     *   - request.auth.uid: 'user123'
+     * @deny (get) User with ID 'user123' cannot read another user's care plans.
+     *   - request.auth.uid: 'user456'
+     * @principle Enforces document ownership; users can only access their own care plans.
+     */
+    match /users/{userId}/carePlans/{carePlanId} {
+      function isOwner(userId) {
+        return request.auth != null && request.auth.uid == userId;
+      }
+      allow create: if isOwner(userId);
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow update: if isOwner(userId) && resource != null;
+      allow delete: if isOwner(userId) && resource != null;
+    }
+
+    /**
+     * @description Controls access to user tasks within a care plan.
+     * @path /users/{userId}/carePlans/{carePlanId}/tasks/{taskId}
+     * @allow (create) User with ID 'user123' can create a task within a care plan.
+     *   - request.auth.uid: 'user123'
+     * @deny (create) User with ID 'user123' cannot create a task for another user's care plan.
+     *   - request.auth.uid: 'user456'
+     * @allow (get) User with ID 'user123' can read their tasks.
+     *   - request.auth.uid: 'user123'
+     * @deny (get) User with ID 'user123' cannot read another user's tasks.
+     *   - request.auth.uid: 'user456'
+     * @principle Enforces document ownership; users can only access their own tasks within their care plans.
+     */
+    match /users/{userId}/carePlans/{carePlanId}/tasks/{taskId} {
+      function isOwner(userId) {
+        return request.auth != null && request.auth.uid == userId;
+      }
+      allow create: if isOwner(userId);
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow update: if isOwner(userId) && resource != null;
+      allow delete: if isOwner(userId) && resource != null;
+    }
+
+    /**
+     * @description Controls access to user task logs within a task, in a care plan.
+     * @path /users/{userId}/carePlans/{carePlanId}/tasks/{taskId}/taskLogs/{taskLogId}
+     * @allow (create) User with ID 'user123' can create a task log.
+     *   - request.auth.uid: 'user123'
+     * @deny (create) User with ID 'user123' cannot create a task log for another user.
+     *   - request.auth.uid: 'user456'
+     * @allow (get) User with ID 'user123' can read their task logs.
+     *   - request.auth.uid: 'user123'
+     * @deny (get) User with ID 'user123' cannot read another user's task logs.
+     *   - request.auth.uid: 'user456'
+     * @principle Enforces document ownership; users can only access their own task logs.
+     */
+    match /users/{userId}/carePlans/{carePlanId}/tasks/{taskId}/taskLogs/{taskLogId} {
+      function isOwner(userId) {
+        return request.auth != null && request.auth.uid == userId;
+      }
+      allow create: if isOwner(userId);
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow update: if isOwner(userId) && resource != null;
+      allow delete: if isOwner(userId) && resource != null;
+    }
+
+    /**
+     * @description Controls access to common medication information.
+     * @path /common_meds/{medId}
+     * @allow (get) Any user can read common medication information.
+     * @allow (list) Any user can list common medication information.
+     * @deny (create) No one can create common medication information without auth.
+     * @deny (update) No one can update common medication information without auth.
+     * @deny (delete) No one can delete common medication information without auth.
+     * @principle Allows public read access to common medication information.
+     */
+    match /common_meds/{medId} {
+      allow get: if true;
+      allow list: if true;
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    /**
+     * @description Controls access to common tests information.
+     * @path /common_tests/{testId}
+     * @allow (get) Any user can read common tests information.
+     * @allow (list) Any user can list common tests information.
+     * @deny (create) No one can create common tests information without auth.
+     * @deny (update) No one can update common tests information without auth.
+     * @deny (delete) No one can delete common tests information without auth.
+     * @principle Allows public read access to common tests information.
+     */
+    match /common_tests/{testId} {
+      allow get: if true;
+      allow list: if true;
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
+    }
+  }
+}

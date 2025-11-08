@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -68,6 +69,7 @@ export default function CarePlanDetailsPage() {
       const taskLogRef = collection(firestore, `users/${user.uid}/carePlans/${carePlanId}/tasks/${task.id}/taskLogs`);
       addDocumentNonBlocking(taskLogRef, {
         taskId: task.id,
+        patientId: user.uid,
         completedAt: serverTimestamp(),
       });
     }
@@ -167,7 +169,7 @@ export default function CarePlanDetailsPage() {
                                     <Checkbox aria-label={`Mark task as ${task.status === 'Completed' ? 'pending' : 'completed'}`} checked={task.status === 'Completed'} onCheckedChange={() => handleTaskToggle(task)} className="h-6 w-6"/>
                                 </TableCell>
                                 <TableCell className="font-medium">{language === 'en' ? task.text_en : task.text_kn}</TableCell>
-                                <TableCell className="text-muted-foreground">{new Date(task.dueDate).toLocaleString()}</TableCell>
+                                <TableCell className="text-muted-foreground">{task.dueDate ? new Date(task.dueDate).toLocaleString() : 'N/A'}</TableCell>
                                 <TableCell>
                                 <Badge
                                     variant={statusProps.variant}

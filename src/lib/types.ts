@@ -36,6 +36,7 @@ export type CarePlan = {
 export type Task = {
   id: string;
   carePlanId: string;
+  patientId: string;
   type: string;
   text_en: string;
   text_kn: string;
@@ -46,6 +47,7 @@ export type Task = {
 export type TaskLog = {
     id: string;
     taskId: string;
+    patientId: string;
     completedAt: any; // Can be a server timestamp
 }
 

@@ -75,8 +75,13 @@ service cloud.firestore {
         allow write: if false; // Should be handled by backend functions
     }
     
-     match /{path=**}/taskLogs/{taskLogId} {
-        allow list: if request.auth.uid != null;
+    // This allows collection group queries on taskLogs for the owner
+    match /{path=**}/taskLogs/{taskLogId} {
+      allow list: if resource.data.patientId == request.auth.uid;
+    }
+    
+    match /{path=**}/tasks/{taskId} {
+        allow list: if resource.data.patientId == request.auth.uid;
     }
 
     match /common_meds/{medId} {

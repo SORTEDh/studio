@@ -9,7 +9,6 @@ import { Task, CarePlan, TaskLog } from "@/lib/types";
 import { CheckCircle2, ListChecks, Activity } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
 import { TaskCompletionChart } from "@/components/task-completion-chart";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -25,27 +24,21 @@ export default function AnalyticsPage() {
     const { data: carePlans, isLoading: isLoadingCarePlans } = useCollection<CarePlan>(carePlansQuery);
 
     const allTasksQuery = useMemoFirebase(() => {
-        if (!user || !carePlans) return null;
-        // This is a simplification. A real implementation would need a more scalable way to get all tasks.
-        // We will query all tasks for all care plans.
-        if (carePlans.length === 0) return null;
+        if (!user) return null;
         return query(collectionGroup(firestore, `tasks`), where('patientId', '==', user.uid));
-    }, [firestore, user, carePlans]);
+    }, [firestore, user]);
 
     const { data: tasks, isLoading: isLoadingTasks } = useCollection<Task>(allTasksQuery);
 
-    // To get recent activity, we need to query the taskLogs subcollection.
-    // This is a collection group query which needs an index.
-    // For now we will just query from the first care plan's first task if it exists.
     const recentActivityQuery = useMemoFirebase(() => {
-        if (!user || !tasks || tasks.length === 0) return null;
-        const recentTask = tasks[0];
+        if (!user) return null;
         return query(
-            collection(firestore, `users/${user.uid}/carePlans/${recentTask.carePlanId}/tasks/${recentTask.id}/taskLogs`), 
+            collectionGroup(firestore, `taskLogs`),
+            where('patientId', '==', user.uid),
             orderBy("completedAt", "desc"), 
             limit(5)
         );
-    }, [firestore, user, tasks]);
+    }, [firestore, user]);
     
     const { data: recentTaskLogs, isLoading: isLoadingRecentTaskLogs } = useCollection<TaskLog>(recentActivityQuery);
 

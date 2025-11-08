@@ -18,8 +18,9 @@ import {
 } from "@/components/ui/chart"
 import { useUser, useFirestore, useCollection, useMemoFirebase } from "@/firebase";
 import { collectionGroup, query, where, Timestamp } from "firebase/firestore";
-import { eachDayOfInterval, subDays, format, parseISO } from 'date-fns';
+import { eachDayOfInterval, subDays, format } from 'date-fns';
 import { Skeleton } from "./ui/skeleton"
+import type { TaskLog } from "@/lib/types"
 
 const chartConfig = {
   tasks: {
@@ -32,24 +33,18 @@ export function TaskCompletionChart() {
     const { user, isUserLoading } = useUser();
     const firestore = useFirestore();
 
-    const sevenDaysAgo = subDays(new Date(), 7);
+    const sevenDaysAgo = useMemo(() => subDays(new Date(), 7), []);
 
     const taskLogsQuery = useMemoFirebase(() => {
-        // Wait until user is loaded and available
         if (!user) return null;
         return query(
             collectionGroup(firestore, 'taskLogs'),
+            where('patientId', '==', user.uid),
             where('completedAt', '>=', Timestamp.fromDate(sevenDaysAgo))
-            // This assumes rules allow the user to query this collection group.
-            // A possible rule would be:
-            // match /{path=**}/taskLogs/{logId} {
-            //   allow list: if request.auth.uid != null;
-            // }
-            // This is just an example, and security should be more granular.
         );
     }, [firestore, user, sevenDaysAgo]);
 
-    const { data: taskLogs, isLoading: isLoadingLogs } = useCollection(taskLogsQuery);
+    const { data: taskLogs, isLoading: isLoadingLogs } = useCollection<TaskLog>(taskLogsQuery);
     
     const data = useMemo(() => {
         const days = eachDayOfInterval({
@@ -64,7 +59,7 @@ export function TaskCompletionChart() {
 
         if (taskLogs) {
             taskLogs.forEach(log => {
-                if(log.completedAt) {
+                if(log.completedAt?.toDate) {
                     const dateStr = format(log.completedAt.toDate(), 'MMM d');
                     const dayData = chartData.find(d => d.date === dateStr);
                     if (dayData) {

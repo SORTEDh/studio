@@ -6,9 +6,43 @@ service cloud.firestore {
     function isOwner(userId) {
       return request.auth != null && request.auth.uid == userId;
     }
+    
+    function isDoctor() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'doctor';
+    }
+    
+    // Allow doctors to write to a patient's subcollections if they have consent (simplified for now)
+    function hasAccessToPatient(patientId) {
+        return isOwner(patientId) || isDoctor(); // In a real app, this would check a consent record
+    }
 
     match /users/{userId} {
       allow read, write: if isOwner(userId);
+      
+      // Prescriptions subcollection
+      match /prescriptions/{prescriptionId} {
+        allow read, write: if hasAccessToPatient(userId);
+      }
+      
+      // CarePlans subcollection
+      match /carePlans/{carePlanId} {
+        allow read, write: if hasAccessToPatient(userId);
+
+        // Tasks subcollection within a CarePlan
+        match /tasks/{taskId} {
+            allow read, write: if hasAccessToPatient(userId);
+
+            // TaskLogs subcollection within a Task
+            match /taskLogs/{taskLogId} {
+                allow read, write: if hasAccessToPatient(userId);
+            }
+        }
+      }
+      
+      // Consents subcollection
+      match /consents/{consentId} {
+          allow read, write: if isOwner(userId);
+      }
     }
 
     match /patients/{patientId} {
@@ -23,26 +57,6 @@ service cloud.firestore {
         allow read, write: if request.auth != null; // Should be restricted further
     }
     
-    match /users/{userId}/prescriptions/{prescriptionId} {
-      allow read, write: if isOwner(userId);
-    }
-    
-    match /users/{userId}/carePlans/{carePlanId} {
-      allow read, write: if isOwner(userId);
-
-        match /tasks/{taskId} {
-            allow read, write: if isOwner(userId);
-
-            match /taskLogs/{taskLogId} {
-                allow read, write: if isOwner(userId);
-            }
-        }
-    }
-    
-    match /users/{userId}/consents/{consentId} {
-        allow read, write: if isOwner(userId);
-    }
-
     match /auditLogs/{auditLogId} {
         // Only allow backend services (or admins) to write audit logs.
         allow read: if request.auth != null; // Or more restrictive
@@ -74,15 +88,15 @@ service cloud.firestore {
         return request.auth.uid in resource.data.participants;
       }
       allow read, write: if isParticipant();
+      allow create: if request.auth != null; // Allow any authenticated user to create a chat
       
       match /messages/{messageId} {
         function isChatParticipant() {
           return request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
         }
         allow read, write: if isChatParticipant();
+        allow create: if isChatParticipant();
       }
     }
   }
 }
-
-    

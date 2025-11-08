@@ -4,6 +4,7 @@
 import {
   createCarePlan,
   type CreateCarePlanInput,
+  type CreateCarePlanOutput,
 } from "@/ai/flows/create-care-plan";
 import {
   analyzePrescriptionImage,
@@ -12,9 +13,15 @@ import {
 
 import { z } from "zod";
 
-const actionInputSchema = z.object({
+const analyzeActionInputSchema = z.object({
   prescriptionImageDataUri: z.string(),
 });
+
+const createPlanActionInputSchema = z.object({
+    prescriptionImageDataUri: z.string(),
+    patientId: z.string().optional(),
+});
+
 
 type ServerActionResult<T> = {
   data?: T;
@@ -25,7 +32,7 @@ export async function createCarePlanAction(
   input: CreateCarePlanInput
 ): Promise<ServerActionResult<CreateCarePlanOutput>> {
   try {
-    const validatedInput = actionInputSchema.safeParse(input);
+    const validatedInput = createPlanActionInputSchema.safeParse(input);
     if (!validatedInput.success) {
       return { error: "Invalid input." };
     }
@@ -44,10 +51,10 @@ export async function createCarePlanAction(
 }
 
 export async function analyzePrescriptionAction(
-  input: CreateCarePlanInput
+  input: { prescriptionImageDataUri: string }
 ): Promise<ServerActionResult<AnalyzePrescriptionImageOutput>> {
     try {
-        const validatedInput = actionInputSchema.safeParse(input);
+        const validatedInput = analyzeActionInputSchema.safeParse(input);
         if (!validatedInput.success) {
             return { error: "Invalid input." };
         }

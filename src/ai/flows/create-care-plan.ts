@@ -9,16 +9,18 @@
  */
 
 import { ai } from '@/ai/genkit';
-import { z } from 'genkit';
+import { z } from 'zod';
 import {
   addDoc,
   collection,
   doc,
+  query,
+  where,
+  getDocs,
   serverTimestamp,
   setDoc,
 } from 'firebase/firestore';
 import { getFirebase } from '@/firebase-server';
-import { getAuth } from 'firebase/auth';
 import { getStorage, ref, uploadString, getDownloadURL } from "firebase/storage";
 
 
@@ -37,6 +39,7 @@ const CreateCarePlanInputSchema = z.object({
     .describe(
       "A prescription image as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
     ),
+  patientId: z.string().optional().describe("The ID of the patient. If not provided, the current user is assumed to be the patient.")
 });
 export type CreateCarePlanInput = z.infer<typeof CreateCarePlanInputSchema>;
 
@@ -63,11 +66,19 @@ const CarePlanSchema = z.object({
   createdAt: z.string(),
 });
 
+const ChatSchema = z.object({
+    id: z.string(),
+    participants: z.array(z.string()),
+    createdAt: z.string(),
+    updatedAt: z.string(),
+});
+
 
 const CreateCarePlanOutputSchema = z.object({
   prescription: PrescriptionSchema,
   carePlan: CarePlanSchema,
   tasks: z.array(TaskSchema.extend({ id: z.string() })),
+  chat: ChatSchema.optional(),
 });
 export type CreateCarePlanOutput = z.infer<typeof CreateCarePlanOutputSchema>;
 
@@ -87,7 +98,7 @@ export async function createCarePlan(
 
 const analyzePrescriptionPrompt = ai.definePrompt({
   name: 'analyzePrescriptionPromptForCarePlan',
-  input: { schema: CreateCarePlanInputSchema },
+  input: { schema: z.object({ prescriptionImageDataUri: z.string()}) },
   output: { schema: AnalyzePrescriptionImageOutputSchema },
   prompt: `You are an AI assistant that analyzes prescription images and extracts key information.
 
@@ -123,41 +134,45 @@ const createCarePlanFlow = ai.defineFlow(
   async (input) => {
     const { firestore, auth } = getFirebase();
     const storage = getStorage();
-    const user = auth.currentUser;
+    const currentUser = auth.currentUser;
 
-    if (!user) {
+    if (!currentUser) {
       throw new Error('User is not authenticated.');
     }
+    
+    // Determine the patient ID. If a doctor provides it, use it. Otherwise, use the current user's ID.
+    const patientId = input.patientId || currentUser.uid;
+    const isDoctorFlow = !!input.patientId;
 
     // 1. Analyze the prescription image
-    const { output: analysis } = await analyzePrescriptionPrompt(input);
+    const { output: analysis } = await analyzePrescriptionPrompt({ prescriptionImageDataUri: input.prescriptionImageDataUri});
     if (!analysis) {
         throw new Error('Could not analyze prescription');
     }
 
     // 2. Upload image to Firebase Storage
-    const imageRef = ref(storage, `prescriptions/${user.uid}/${Date.now()}`);
+    const imageRef = ref(storage, `prescriptions/${patientId}/${Date.now()}`);
     const uploadResult = await uploadString(input.prescriptionImageDataUri, imageRef, 'data_url');
     const imageUrl = await getDownloadURL(uploadResult.ref);
 
 
-    // 3. Save the Prescription to Firestore
-    const prescriptionRef = doc(collection(firestore, `users/${user.uid}/prescriptions`));
+    // 3. Save the Prescription to Firestore for the patient
+    const prescriptionRef = doc(collection(firestore, `users/${patientId}/prescriptions`));
     const prescriptionData = {
         ...analysis,
         id: prescriptionRef.id,
-        patientId: user.uid,
+        patientId: patientId,
         imageUrl,
         createdAt: serverTimestamp(),
         status: 'Active',
     };
     await setDoc(prescriptionRef, prescriptionData);
     
-    // 4. Create a Care Plan in Firestore
-    const carePlanRef = doc(collection(firestore, `users/${user.uid}/carePlans`));
+    // 4. Create a Care Plan in Firestore for the patient
+    const carePlanRef = doc(collection(firestore, `users/${patientId}/carePlans`));
     const carePlanData = {
         id: carePlanRef.id,
-        patientId: user.uid,
+        patientId: patientId,
         prescriptionId: prescriptionRef.id,
         createdAt: serverTimestamp(),
     };
@@ -172,12 +187,53 @@ const createCarePlanFlow = ai.defineFlow(
     // 6. Save tasks to Firestore
     const savedTasks = [];
     for (const task of tasksOutput.tasks) {
-        const taskRef = doc(collection(firestore, `users/${user.uid}/carePlans/${carePlanRef.id}/tasks`));
+        const taskRef = doc(collection(firestore, `users/${patientId}/carePlans/${carePlanRef.id}/tasks`));
         const taskData = { ...task, id: taskRef.id, carePlanId: carePlanRef.id };
         await setDoc(taskRef, taskData);
         savedTasks.push(taskData);
     }
     
+    let chatData;
+    // 7. If doctor initiated, create a chat
+    if (isDoctorFlow) {
+        const chatsRef = collection(firestore, 'chats');
+        const q = query(chatsRef, where('participants', 'array-contains', currentUser.uid));
+        const querySnapshot = await getDocs(q);
+        
+        let existingChat;
+        querySnapshot.forEach((doc) => {
+            const chat = doc.data();
+            if (chat.participants.includes(patientId)) {
+                existingChat = { id: doc.id, ...chat };
+            }
+        });
+
+        if (!existingChat) {
+            const newChatRef = doc(chatsRef);
+            chatData = {
+                id: newChatRef.id,
+                participants: [currentUser.uid, patientId],
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+                lastMessage: `A new care plan has been created for you.`
+            };
+            await setDoc(newChatRef, chatData);
+            
+            // Add a welcome message to the new chat
+            const messagesRef = collection(newChatRef, 'messages');
+            await addDoc(messagesRef, {
+                chatId: newChatRef.id,
+                senderId: currentUser.uid,
+                text: `Hello! I've created a new care plan for you based on your recent prescription. You can view it in your dashboard.`,
+                createdAt: serverTimestamp(),
+            });
+
+        } else {
+            chatData = existingChat;
+        }
+    }
+
+
     // This is a workaround because serverTimestamp() returns a token, not a date.
     const finalPrescriptionData = {
         ...prescriptionData,
@@ -187,11 +243,18 @@ const createCarePlanFlow = ai.defineFlow(
         ...carePlanData,
         createdAt: new Date().toISOString()
     }
+    const finalChatData = chatData ? {
+        ...chatData,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+    } : undefined;
+
 
     return {
       prescription: finalPrescriptionData,
       carePlan: finalCarePlanData,
       tasks: savedTasks,
+      chat: finalChatData
     };
   }
 );

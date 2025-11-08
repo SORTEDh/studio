@@ -1,5 +1,12 @@
 
 
+export type User = {
+  id: string;
+  email: string;
+  role: 'patient' | 'doctor' | 'admin';
+  locale: string;
+}
+
 export type Prescription = {
   id: string;
   patientId: string;

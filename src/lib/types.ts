@@ -1,4 +1,5 @@
 
+
 export type Prescription = {
   id: string;
   patientId: string;
@@ -32,3 +33,18 @@ export type TaskLog = {
     taskId: string;
     completedAt: any; // Can be a server timestamp
 }
+
+export type Chat = {
+  id: string;
+  participants: string[];
+  lastMessage?: string;
+  updatedAt: any; // server timestamp
+};
+
+export type Message = {
+  id: string;
+  chatId: string;
+  senderId: string;
+  text: string;
+  createdAt: any; // server timestamp
+};

@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Users, FileText, Stethoscope, ClipboardList, BarChart3 } from "lucide-react";
+import { Home, Users, FileText, Stethoscope, ClipboardList, BarChart3, MessageSquare } from "lucide-react";
 
 import {
   SidebarHeader,
@@ -32,6 +32,7 @@ export function DashboardSidebar() {
       icon: ClipboardList,
     },
     { href: "/dashboard/analytics", label: "Analytics", icon: BarChart3 },
+    { href: "/dashboard/chat", label: "Chat", icon: MessageSquare },
     { href: "/dashboard/users", label: "Users", icon: Users },
   ];
 

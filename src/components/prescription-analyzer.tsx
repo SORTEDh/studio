@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -6,8 +7,8 @@ import { Upload, X, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { analyzePrescription } from "@/app/actions";
 import type { AnalyzePrescriptionImageOutput } from "@/ai/flows/analyze-prescription-image";
+import { analyzePrescriptionAction } from "@/app/actions";
 
 export function PrescriptionAnalyzer() {
   const [file, setFile] = useState<File | null>(null);
@@ -71,7 +72,7 @@ export function PrescriptionAnalyzer() {
 
     try {
       const dataUri = await fileToDataUri(file);
-      const analysisResult = await analyzePrescription({
+      const analysisResult = await analyzePrescriptionAction({
         prescriptionImageDataUri: dataUri,
       });
 

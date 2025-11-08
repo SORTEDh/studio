@@ -6,6 +6,7 @@
  * This ruleset enforces a strict user-ownership model for all patient-specific data.
  * Each user can only access their own data, and no cross-user access is permitted.
  * Public read access is enabled for common medication and test lists.
+ * Chat is secured to only allow access for chat participants.
  *
  * Data Structure:
  * - /users/{userId}: Stores user profiles, accessible only by the user themselves.
@@ -15,17 +16,20 @@
  * - /users/{userId}/carePlans/{carePlanId}/tasks/{taskId}/taskLogs/{taskLogId}: Stores task logs, accessible only by the user.
  * - /common_meds/{medId}: Stores common medication information, publicly readable.
  * - /common_tests/{testId}: Stores common tests information, publicly readable.
+ * - /chats/{chatId}: Stores chat sessions, accessible only by participants.
+ * - /chats/{chatId}/messages/{messageId}: Stores messages, accessible only by participants.
  *
  * Key Security Decisions:
  * - User listing is explicitly denied to prevent unauthorized information gathering.
  * - All data nested under /users/{userId} is strictly controlled by the user's authentication.
  * - Common medication and test lists are publicly readable, as they are intended to be seed data.
+ * - Chat data is secured by checking the `participants` array in the chat document.
  *
  * Denormalization for Authorization:
- * - Not required, as the nested structure inherently provides path-based authorization.
+ * - The `participants` array in the /chats/{chatId} documents is a form of denormalization to enable efficient and secure authorization for chat access without needing extra `get` calls.
  *
  * Structural Segregation:
- * - Common data (meds/tests) is stored in separate, top-level collections to isolate it from user-specific data.
+ * - Common data (meds/tests) and chat data are stored in separate, top-level collections to isolate them from user-specific data.
  */
 rules_version = '2';
 service cloud.firestore {
@@ -188,5 +192,33 @@ service cloud.firestore {
       allow update: if false;
       allow delete: if false;
     }
+
+    /**
+     * @description Controls access to chat sessions.
+     * @path /chats/{chatId}
+     * @allow (read, write) A user who is a participant in the chat.
+     * @principle Ensures that only chat participants can access chat data.
+     */
+    match /chats/{chatId} {
+      function isParticipant() {
+        return request.auth.uid in resource.data.participants;
+      }
+      allow read, write: if isParticipant();
+      
+      /**
+       * @description Controls access to messages within a chat.
+       * @path /chats/{chatId}/messages/{messageId}
+       * @allow (read, write) A user who is a participant in the chat.
+       * @principle Inherits permissions from the parent chat document.
+       */
+      match /messages/{messageId} {
+        function isChatParticipant() {
+          return request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+        }
+        allow read, write: if isChatParticipant();
+      }
+    }
   }
 }
+
+    

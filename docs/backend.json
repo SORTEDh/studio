@@ -21,8 +21,11 @@
         },
         "role": {
           "type": "string",
-          "description": "Role of the user (e.g., patient, admin).",
-          "format": "string"
+          "description": "Role of the user.",
+          "enum": [
+            "patient",
+            "doctor"
+          ]
         },
         "locale": {
           "type": "string",
@@ -171,6 +174,75 @@
         "id",
         "taskId",
         "completedAt"
+      ]
+    },
+    "Chat": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Chat",
+      "type": "object",
+      "description": "Represents a chat session between users.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the chat session."
+        },
+        "participants": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "An array of user IDs participating in the chat."
+        },
+        "lastMessage": {
+          "type": "string",
+          "description": "The last message sent in the chat."
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp of the last message.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "participants",
+        "updatedAt"
+      ]
+    },
+    "Message": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Message",
+      "type": "object",
+      "description": "Represents a single message in a chat.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the message."
+        },
+        "chatId": {
+          "type": "string",
+          "description": "Reference to the Chat."
+        },
+        "senderId": {
+          "type": "string",
+          "description": "The ID of the user who sent the message."
+        },
+        "text": {
+          "type": "string",
+          "description": "The content of the message."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the message was sent.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "chatId",
+        "senderId",
+        "text",
+        "createdAt"
       ]
     }
   },
@@ -321,8 +393,45 @@
             }
           ]
         }
+      },
+      {
+        "path": "/chats/{chatId}",
+        "definition": {
+          "entityName": "Chat",
+          "schema": {
+            "$ref": "#/backend/entities/Chat"
+          },
+          "description": "Stores chat sessions between users.",
+          "params": [
+            {
+              "name": "chatId",
+              "description": "The unique identifier for the chat."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/chats/{chatId}/messages/{messageId}",
+        "definition": {
+          "entityName": "Message",
+          "schema": {
+            "$ref": "#/backend/entities/Message"
+          },
+          "description": "Stores messages within a chat.",
+          "params": [
+            {
+              "name": "chatId",
+              "description": "The unique identifier for the chat."
+            },
+            {
+              "name": "messageId",
+              "description": "The unique identifier for the message."
+            }
+          ]
+        }
       }
     ],
-    "reasoning": "The Firestore structure is designed to ensure Authorization Independence, DBAC, and QAPs. User data is stored under `/users/{userId}` to establish clear ownership. Prescriptions, CarePlans, Tasks, and TaskLogs are nested under the user to maintain this ownership.  This nested structure simplifies security rules, allowing for path-based authorization.  Authorization Independence is achieved by avoiding `get()` calls in security rules, relying instead on the inherent hierarchy.  Since we are using path-based ownership for all data related to a user, no data needs to be denormalized.  The structure supports QAPs because `list` operations are naturally scoped to a user's data, preventing unauthorized access to other users' information.  Dedicated collections for common meds/tests list are created to store the seed data separate from user data."
+    "reasoning": "The Firestore structure is designed to ensure Authorization Independence, DBAC, and QAPs. User data is stored under `/users/{userId}` to establish clear ownership. Prescriptions, CarePlans, Tasks, and TaskLogs are nested under the user to maintain this ownership. This nested structure simplifies security rules, allowing for path-based authorization. Authorization Independence is achieved by avoiding `get()` calls in security rules, relying instead on the inherent hierarchy. Since we are using path-based ownership for all data related to a user, no data needs to be denormalized. The structure supports QAPs because `list` operations are naturally scoped to a user's data, preventing unauthorized access to other users' information. Dedicated collections for common meds/tests list are created to store the seed data separate from user data. Chat data is stored in a top-level `chats` collection to allow for flexible participant structures and avoid deep nesting under users. Security for chats is managed by checking if the authenticated user's ID is in the `participants` array of the chat document."
   }
 }
+    

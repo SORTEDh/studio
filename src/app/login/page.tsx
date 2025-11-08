@@ -11,8 +11,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { useForm, FormProvider } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import {
@@ -29,8 +28,10 @@ import { useAuth } from "@/firebase";
 import {
   initiateEmailSignIn,
   initiateEmailSignUp,
+  initiateAnonymousSignIn,
 } from "@/firebase/non-blocking-login";
 import React from "react";
+import { Separator } from "@/components/ui/separator";
 
 const formSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email." }),
@@ -58,19 +59,15 @@ export default function LoginPage() {
     setIsLoading(true);
     try {
       if (isSignUp) {
-        // Non-blocking sign up
         initiateEmailSignUp(auth, values.email, values.password);
         toast({
           title: "Account Created!",
           description: "Please sign in with your new account.",
         });
-        setIsSignUp(false); // Switch to sign-in view
+        setIsSignUp(false);
         form.reset();
       } else {
-        // Non-blocking sign in
         initiateEmailSignIn(auth, values.email, values.password);
-        // The onAuthStateChanged listener in FirebaseProvider will handle the redirect
-        // For now, we can optimistically navigate.
         router.push("/dashboard");
       }
     } catch (error: any) {
@@ -79,6 +76,23 @@ export default function LoginPage() {
         variant: "destructive",
         title: "Authentication Failed",
         description: error.message || "An unexpected error occurred.",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  const handleAnonymousSignIn = async () => {
+    setIsLoading(true);
+    try {
+      initiateAnonymousSignIn(auth);
+      router.push("/dashboard");
+    } catch (error: any) {
+      console.error("Anonymous sign-in error:", error);
+      toast({
+        variant: "destructive",
+        title: "Sign-in Failed",
+        description: "Could not sign in anonymously. Please try again.",
       });
     } finally {
       setIsLoading(false);
@@ -100,12 +114,12 @@ export default function LoginPage() {
         <Card>
           <CardHeader className="text-center">
             <CardTitle className="text-2xl font-headline">
-              {isSignUp ? "Create an Account" : "Admin Login"}
+              {isSignUp ? "Create an Account" : "Welcome Back"}
             </CardTitle>
             <CardDescription>
               {isSignUp
-                ? "Enter your details to create an account."
-                : "Enter your credentials to access the dashboard."}
+                ? "Enter your details to create a new account."
+                : "Sign in to access your dashboard."}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -122,6 +136,7 @@ export default function LoginPage() {
                           placeholder="admin@example.com"
                           {...field}
                           type="email"
+                          autoComplete="email"
                         />
                       </FormControl>
                       <FormMessage />
@@ -139,26 +154,48 @@ export default function LoginPage() {
                           type="password"
                           {...field}
                           placeholder="••••••••"
+                          autoComplete={isSignUp ? "new-password" : "current-password"}
                         />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-                <Button type="submit" className="w-full" disabled={isLoading}>
+                <Button type="submit" className="w-full !mt-6" disabled={isLoading}>
                   {isLoading ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   ) : (
-                    isSignUp ? "Sign Up" : "Sign In"
+                    isSignUp ? "Create Account" : "Sign In"
                   )}
                 </Button>
               </form>
             </Form>
-            <div className="mt-4 text-center text-sm">
+
+            <div className="relative my-6">
+                <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-background px-2 text-muted-foreground">
+                    Or continue with
+                    </span>
+                </div>
+            </div>
+
+            <Button variant="outline" className="w-full" onClick={handleAnonymousSignIn} disabled={isLoading}>
+                {isLoading ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                    "Sign in Anonymously"
+                )}
+            </Button>
+
+
+            <div className="mt-6 text-center text-sm">
               {isSignUp ? "Already have an account?" : "Don't have an account?"}{" "}
               <Button
                 variant="link"
-                className="p-0 h-auto"
+                className="p-0 h-auto font-semibold"
                 onClick={() => {
                   setIsSignUp(!isSignUp);
                   form.reset();

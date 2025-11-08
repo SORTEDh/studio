@@ -19,6 +19,7 @@ import {
 import { useUser, useFirestore, useCollection, useMemoFirebase } from "@/firebase";
 import { collectionGroup, query, where, Timestamp } from "firebase/firestore";
 import { eachDayOfInterval, subDays, format, parseISO } from 'date-fns';
+import { Skeleton } from "./ui/skeleton"
 
 const chartConfig = {
   tasks: {
@@ -28,23 +29,27 @@ const chartConfig = {
 }
 
 export function TaskCompletionChart() {
-    const { user } = useUser();
+    const { user, isUserLoading } = useUser();
     const firestore = useFirestore();
 
     const sevenDaysAgo = subDays(new Date(), 7);
 
     const taskLogsQuery = useMemoFirebase(() => {
+        // Wait until user is loaded and available
         if (!user) return null;
         return query(
             collectionGroup(firestore, 'taskLogs'),
             where('completedAt', '>=', Timestamp.fromDate(sevenDaysAgo))
+            // This assumes rules allow the user to query this collection group.
+            // A possible rule would be:
+            // match /{path=**}/taskLogs/{logId} {
+            //   allow list: if request.auth.uid != null;
+            // }
+            // This is just an example, and security should be more granular.
         );
-    }, [firestore, user]);
+    }, [firestore, user, sevenDaysAgo]);
 
-    // Note: This component assumes that the current user can query the `taskLogs` collection group.
-    // This requires specific Firestore security rules. For this demo, we'll assume they are permissive enough.
-    // A rule like `match /{path=**}/taskLogs/{logId} { allow list: if request.auth.uid != null; }` would be needed.
-    const { data: taskLogs, isLoading } = useCollection(taskLogsQuery);
+    const { data: taskLogs, isLoading: isLoadingLogs } = useCollection(taskLogsQuery);
     
     const data = useMemo(() => {
         const days = eachDayOfInterval({
@@ -71,9 +76,10 @@ export function TaskCompletionChart() {
         return chartData;
     }, [taskLogs, sevenDaysAgo]);
 
+  const isLoading = isUserLoading || isLoadingLogs;
 
   if (isLoading) {
-    return <div>Loading chart...</div>
+    return <Skeleton className="h-[250px] w-full" />
   }
 
   return (

@@ -19,7 +19,8 @@ const analyzeActionInputSchema = z.object({
 
 const createPlanActionInputSchema = z.object({
     prescriptionImageDataUri: z.string(),
-    patientId: z.string().optional(),
+    patientId: z.string(),
+    actorId: z.string(),
 });
 
 
@@ -34,7 +35,7 @@ export async function createCarePlanAction(
   try {
     const validatedInput = createPlanActionInputSchema.safeParse(input);
     if (!validatedInput.success) {
-      return { error: "Invalid input." };
+      return { error: validatedInput.error.message };
     }
 
     const result = await createCarePlan(validatedInput.data);

@@ -1,6 +1,7 @@
 
 "use client"
 
+import { useMemo } from "react"
 import { TrendingUp } from "lucide-react"
 import { Bar, BarChart, CartesianGrid, XAxis, Tooltip } from "recharts"
 import {
@@ -68,7 +69,7 @@ export function TaskCompletionChart() {
             });
         }
         return chartData;
-    }, [taskLogs]);
+    }, [taskLogs, sevenDaysAgo]);
 
 
   if (isLoading) {
@@ -95,4 +96,3 @@ export function TaskCompletionChart() {
     </ChartContainer>
   )
 }
-

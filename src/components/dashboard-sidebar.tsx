@@ -1,8 +1,9 @@
+
 "use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Users, FileText, Stethoscope, ClipboardList } from "lucide-react";
+import { Home, Users, FileText, Stethoscope, ClipboardList, BarChart3 } from "lucide-react";
 
 import {
   SidebarHeader,
@@ -30,6 +31,7 @@ export function DashboardSidebar() {
       label: "Care Plans",
       icon: ClipboardList,
     },
+    { href: "/dashboard/analytics", label: "Analytics", icon: BarChart3 },
     { href: "/dashboard/users", label: "Users", icon: Users },
   ];
 

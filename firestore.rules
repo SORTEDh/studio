@@ -1,3 +1,4 @@
+
 /**
  * @fileoverview Firestore Security Rules for the patient support system.
  *
@@ -102,55 +103,55 @@ service cloud.firestore {
       allow list: if isOwner(userId);
       allow update: if isOwner(userId) && resource != null;
       allow delete: if isOwner(userId) && resource != null;
+
+        /**
+         * @description Controls access to user tasks within a care plan.
+         * @path /users/{userId}/carePlans/{carePlanId}/tasks/{taskId}
+         * @allow (create) User with ID 'user123' can create a task within a care plan.
+         *   - request.auth.uid: 'user123'
+         * @deny (create) User with ID 'user123' cannot create a task for another user's care plan.
+         *   - request.auth.uid: 'user456'
+         * @allow (get) User with ID 'user123' can read their tasks.
+         *   - request.auth.uid: 'user123'
+         * @deny (get) User with ID 'user123' cannot read another user's tasks.
+         *   - request.auth.uid: 'user456'
+         * @principle Enforces document ownership; users can only access their own tasks within their care plans.
+         */
+        match /tasks/{taskId} {
+            allow create: if isOwner(userId);
+            allow get: if isOwner(userId);
+            allow list: if isOwner(userId);
+            allow update: if isOwner(userId) && resource != null;
+            allow delete: if isOwner(userId) && resource != null;
+
+            /**
+             * @description Controls access to user task logs within a task, in a care plan.
+             * @path /users/{userId}/carePlans/{carePlanId}/tasks/{taskId}/taskLogs/{taskLogId}
+             * @allow (create) User with ID 'user123' can create a task log.
+             *   - request.auth.uid: 'user123'
+             * @deny (create) User with ID 'user123' cannot create a task log for another user.
+             *   - request.auth.uid: 'user456'
+             * @allow (get) User with ID 'user123' can read their task logs.
+             *   - request.auth.uid: 'user123'
+             * @deny (get) User with ID 'user123' cannot read another user's task logs.
+             *   - request.auth.uid: 'user456'
+             * @principle Enforces document ownership; users can only access their own task logs.
+             */
+            match /taskLogs/{taskLogId} {
+                allow create: if isOwner(userId);
+                allow get: if isOwner(userId);
+                allow list: if isOwner(userId);
+                allow update: if isOwner(userId) && resource != null;
+                allow delete: if isOwner(userId) && resource != null;
+            }
+        }
+    }
+    // This rule allows the analytics page to query across all user's task logs.
+    // In a real production app, this should be restricted to admins or specific roles.
+     match /{path=**}/taskLogs/{taskLogId} {
+        allow list: if request.auth.uid != null;
     }
 
-    /**
-     * @description Controls access to user tasks within a care plan.
-     * @path /users/{userId}/carePlans/{carePlanId}/tasks/{taskId}
-     * @allow (create) User with ID 'user123' can create a task within a care plan.
-     *   - request.auth.uid: 'user123'
-     * @deny (create) User with ID 'user123' cannot create a task for another user's care plan.
-     *   - request.auth.uid: 'user456'
-     * @allow (get) User with ID 'user123' can read their tasks.
-     *   - request.auth.uid: 'user123'
-     * @deny (get) User with ID 'user123' cannot read another user's tasks.
-     *   - request.auth.uid: 'user456'
-     * @principle Enforces document ownership; users can only access their own tasks within their care plans.
-     */
-    match /users/{userId}/carePlans/{carePlanId}/tasks/{taskId} {
-      function isOwner(userId) {
-        return request.auth != null && request.auth.uid == userId;
-      }
-      allow create: if isOwner(userId);
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow update: if isOwner(userId) && resource != null;
-      allow delete: if isOwner(userId) && resource != null;
-    }
-
-    /**
-     * @description Controls access to user task logs within a task, in a care plan.
-     * @path /users/{userId}/carePlans/{carePlanId}/tasks/{taskId}/taskLogs/{taskLogId}
-     * @allow (create) User with ID 'user123' can create a task log.
-     *   - request.auth.uid: 'user123'
-     * @deny (create) User with ID 'user123' cannot create a task log for another user.
-     *   - request.auth.uid: 'user456'
-     * @allow (get) User with ID 'user123' can read their task logs.
-     *   - request.auth.uid: 'user123'
-     * @deny (get) User with ID 'user123' cannot read another user's task logs.
-     *   - request.auth.uid: 'user456'
-     * @principle Enforces document ownership; users can only access their own task logs.
-     */
-    match /users/{userId}/carePlans/{carePlanId}/tasks/{taskId}/taskLogs/{taskLogId} {
-      function isOwner(userId) {
-        return request.auth != null && request.auth.uid == userId;
-      }
-      allow create: if isOwner(userId);
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow update: if isOwner(userId) && resource != null;
-      allow delete: if isOwner(userId) && resource != null;
-    }
 
     /**
      * @description Controls access to common medication information.

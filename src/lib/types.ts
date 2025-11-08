@@ -14,7 +14,7 @@ export type CarePlan = {
   id: string;
   patientId: string;
   prescriptionId: string;
-  createdAt: string;
+  createdAt: any; // Can be a server timestamp
 };
 
 export type Task = {
@@ -26,3 +26,9 @@ export type Task = {
   dueDate: string;
   status: 'Pending' | 'Completed' | 'Missed';
 };
+
+export type TaskLog = {
+    id: string;
+    taskId: string;
+    completedAt: any; // Can be a server timestamp
+}

@@ -10,7 +10,7 @@ import {
   analyzePrescriptionImage,
   type AnalyzePrescriptionImageOutput,
 } from "@/ai/flows/analyze-prescription-image";
-
+import { getFirebase } from "@/firebase-server";
 import { z } from "zod";
 
 const analyzeActionInputSchema = z.object({

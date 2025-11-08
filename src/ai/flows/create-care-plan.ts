@@ -39,7 +39,8 @@ const CreateCarePlanInputSchema = z.object({
     .describe(
       "A prescription image as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
     ),
-  patientId: z.string().optional().describe("The ID of the patient. If not provided, the current user is assumed to be the patient.")
+  patientId: z.string().describe("The ID of the patient."),
+  actorId: z.string().describe("The ID of the user performing the action (the doctor or the patient).")
 });
 export type CreateCarePlanInput = z.infer<typeof CreateCarePlanInputSchema>;
 
@@ -132,17 +133,16 @@ const createCarePlanFlow = ai.defineFlow(
     outputSchema: CreateCarePlanOutputSchema,
   },
   async (input) => {
-    const { firestore, auth } = getFirebase();
+    const { firestore } = getFirebase();
     const storage = getStorage();
-    const currentUser = auth.currentUser;
 
-    if (!currentUser) {
-      throw new Error('User is not authenticated.');
+    const { patientId, actorId } = input;
+    if (!patientId || !actorId) {
+        throw new Error('Patient ID and Actor ID are required.');
     }
     
-    // Determine the patient ID. If a doctor provides it, use it. Otherwise, use the current user's ID.
-    const patientId = input.patientId || currentUser.uid;
-    const isDoctorFlow = !!input.patientId;
+    // Determine if the actor is also the patient.
+    const isDoctorFlow = patientId !== actorId;
 
     // 1. Analyze the prescription image
     const { output: analysis } = await analyzePrescriptionPrompt({ prescriptionImageDataUri: input.prescriptionImageDataUri});
@@ -188,7 +188,7 @@ const createCarePlanFlow = ai.defineFlow(
     const savedTasks = [];
     for (const task of tasksOutput.tasks) {
         const taskRef = doc(collection(firestore, `users/${patientId}/carePlans/${carePlanRef.id}/tasks`));
-        const taskData = { ...task, id: taskRef.id, carePlanId: carePlanRef.id };
+        const taskData = { ...task, id: taskRef.id, carePlanId: carePlanRef.id, patientId: patientId };
         await setDoc(taskRef, taskData);
         savedTasks.push(taskData);
     }
@@ -197,7 +197,7 @@ const createCarePlanFlow = ai.defineFlow(
     // 7. If doctor initiated, create a chat
     if (isDoctorFlow) {
         const chatsRef = collection(firestore, 'chats');
-        const q = query(chatsRef, where('participants', 'array-contains', currentUser.uid));
+        const q = query(chatsRef, where('participants', 'array-contains', actorId));
         const querySnapshot = await getDocs(q);
         
         let existingChat;
@@ -212,7 +212,7 @@ const createCarePlanFlow = ai.defineFlow(
             const newChatRef = doc(chatsRef);
             chatData = {
                 id: newChatRef.id,
-                participants: [currentUser.uid, patientId],
+                participants: [actorId, patientId],
                 createdAt: serverTimestamp(),
                 updatedAt: serverTimestamp(),
                 lastMessage: `A new care plan has been created for you.`
@@ -223,7 +223,7 @@ const createCarePlanFlow = ai.defineFlow(
             const messagesRef = collection(newChatRef, 'messages');
             await addDoc(messagesRef, {
                 chatId: newChatRef.id,
-                senderId: currentUser.uid,
+                senderId: actorId,
                 text: `Hello! I've created a new care plan for you based on your recent prescription. You can view it in your dashboard.`,
                 createdAt: serverTimestamp(),
             });

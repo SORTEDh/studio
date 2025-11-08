@@ -12,8 +12,10 @@ import {
 } from "@/app/actions";
 import type { CreateCarePlanOutput } from "@/ai/flows/create-care-plan";
 import { useRouter } from "next/navigation";
+import { useUser } from "@/firebase";
 
 export function PrescriptionUploader() {
+  const { user } = useUser();
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -59,11 +61,11 @@ export function PrescriptionUploader() {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!file) {
+    if (!file || !user) {
       toast({
         variant: "destructive",
-        title: "No file selected",
-        description: "Please upload a prescription image.",
+        title: "No file or user",
+        description: "Please upload a prescription image and make sure you are logged in.",
       });
       return;
     }
@@ -75,6 +77,8 @@ export function PrescriptionUploader() {
       const dataUri = await fileToDataUri(file);
       const analysisResult = await createCarePlanAction({
         prescriptionImageDataUri: dataUri,
+        patientId: user.uid,
+        actorId: user.uid
       });
 
       if (analysisResult.error) {
@@ -151,7 +155,7 @@ export function PrescriptionUploader() {
           <Button
             type="submit"
             className="w-full mt-4"
-            disabled={!file || isLoading}
+            disabled={!file || isLoading || !user}
           >
             {isLoading ? (
               <>

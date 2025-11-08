@@ -8,57 +8,63 @@ service cloud.firestore {
     }
     
     function isDoctor() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'doctor';
+      // Assumes user's role is stored in a 'users' collection
+      return request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'doctor';
     }
     
-    // Allow doctors to write to a patient's subcollections if they have consent (simplified for now)
+    // Allow doctors to write to a patient's subcollections if they have consent
     function hasAccessToPatient(patientId) {
-        return isOwner(patientId) || isDoctor(); // In a real app, this would check a consent record
+        // A doctor can access if they are a participant in a chat with the patient.
+        // This is a proxy for consent for this version of the app.
+        let hasChatAccess = exists(
+            /databases/$(database)/documents/chats/{chatId}
+        ) where get(/databases/$(database)/documents/chats/{chatId}).data.participants[0] == patientId
+             && get(/databases/$(database)/documents/chats/{chatId}).data.participants[1] == request.auth.uid
+             || get(/databases/$(database)/documents/chats/{chatId}).data.participants[1] == patientId
+             && get(/databases/$(database)/documents/chats/{chatId}).data.participants[0] == request.auth.uid;
+             
+        return isOwner(patientId) || (isDoctor() && hasChatAccess);
     }
 
     match /users/{userId} {
       allow read, write: if isOwner(userId);
       
-      // Prescriptions subcollection
       match /prescriptions/{prescriptionId} {
         allow read, write: if hasAccessToPatient(userId);
       }
       
-      // CarePlans subcollection
       match /carePlans/{carePlanId} {
         allow read, write: if hasAccessToPatient(userId);
 
-        // Tasks subcollection within a CarePlan
         match /tasks/{taskId} {
             allow read, write: if hasAccessToPatient(userId);
 
-            // TaskLogs subcollection within a Task
             match /taskLogs/{taskLogId} {
                 allow read, write: if hasAccessToPatient(userId);
             }
         }
       }
       
-      // Consents subcollection
       match /consents/{consentId} {
           allow read, write: if isOwner(userId);
       }
     }
 
     match /patients/{patientId} {
-      allow read, write: if request.auth != null; // Should be restricted further based on roles/consent
+      allow read, write: if request.auth != null; // Should be restricted further
     }
 
     match /practitioners/{practitionerId} {
-        allow read, write: if request.auth != null; // Should be restricted further based on roles/consent
+        allow read, write: if request.auth != null; // Should be restricted further
     }
+
+
 
     match /facilities/{facilityId} {
         allow read, write: if request.auth != null; // Should be restricted further
     }
     
     match /auditLogs/{auditLogId} {
-        // Only allow backend services (or admins) to write audit logs.
         allow read: if request.auth != null; // Or more restrictive
         allow write: if false; // Should be handled by backend functions
     }
@@ -87,15 +93,16 @@ service cloud.firestore {
       function isParticipant() {
         return request.auth.uid in resource.data.participants;
       }
-      allow read, write: if isParticipant();
+      allow read, update: if isParticipant();
       allow create: if request.auth != null; // Allow any authenticated user to create a chat
       
       match /messages/{messageId} {
         function isChatParticipant() {
-          return request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+          let chatDoc = get(/databases/$(database)/documents/chats/$(chatId));
+          return request.auth.uid in chatDoc.data.participants;
         }
-        allow read, write: if isChatParticipant();
-        allow create: if isChatParticipant();
+        allow read, create: if isChatParticipant();
+        allow update, delete: if isChatParticipant() && request.auth.uid == resource.data.senderId;
       }
     }
   }

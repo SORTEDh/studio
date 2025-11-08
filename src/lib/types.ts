@@ -53,5 +53,6 @@ export type Message = {
   chatId: string;
   senderId: string;
   text: string;
+  attachments?: string[];
   createdAt: any; // server timestamp
 };

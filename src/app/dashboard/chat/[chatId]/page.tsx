@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { useUser, useFirestore, useCollection, useDoc, useMemoFirebase } from '@/firebase';
-import { addDoc, collection, doc, orderBy, query, serverTimestamp } from 'firebase/firestore';
+import { addDoc, collection, doc, orderBy, query, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { useParams } from 'next/navigation';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
@@ -47,7 +47,7 @@ export default function ChatPage() {
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim() || !user) return;
+    if (!newMessage.trim() || !user || !chatRef) return;
 
     const messagesColRef = collection(firestore, `chats/${chatId}/messages`);
     
@@ -57,6 +57,13 @@ export default function ChatPage() {
         text: newMessage,
         createdAt: serverTimestamp(),
     });
+    
+    // Non-blocking update for the last message
+    updateDoc(chatRef, {
+        lastMessage: newMessage,
+        updatedAt: serverTimestamp(),
+    }).catch(err => console.error("Failed to update last message", err));
+
 
     setNewMessage('');
   };

@@ -288,6 +288,14 @@
           "type": "string",
           "description": "The content of the message."
         },
+        "attachments": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uri"
+          },
+          "description": "An array of URLs to attachments."
+        },
         "createdAt": {
           "type": "string",
           "description": "Timestamp when the message was sent.",
@@ -391,5 +399,3 @@
     ]
   }
 }
-
-    
